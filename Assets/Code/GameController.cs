@@ -32,12 +32,21 @@ public class GameController : MonoBehaviour
 
     public void Reset()
     {
-        if (_Score > _HighScore) {
+        bool goodDeath = false;
+        if (_Score - _HighScore > 0.1f) {
             _HighScore = _Score;
+            goodDeath = true;
         }
 
         _cart.Reset();
         _avalanche.Reset();
         _generator.Reset();
+
+        if (goodDeath) {
+            _cart.PlayGoodDeath();
+        }
+        else {
+            _cart.PlayBadDeath();
+        }
     }
 }

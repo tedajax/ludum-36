@@ -29,7 +29,9 @@ public class CartController : MonoBehaviour
     [SerializeField] private AudioSource _audioSource;
     public AudioClip _crankClip;
     public AudioClip _jumpClip;
-    public AudioClip _deathClip;
+    public AudioClip _jumpChargeClip;
+    public AudioClip _goodDeathClip;
+    public AudioClip _badDeathClip;
 
     private float _speedRatio = 0f;
 
@@ -82,7 +84,7 @@ public class CartController : MonoBehaviour
     {
         get
         {
-            return Mathf.Abs(transform.position.x - _spawnPosition.x);
+            return Mathf.Clamp(transform.position.x - _spawnPosition.x, 0f, Mathf.Infinity);
         }
     }
 
@@ -104,13 +106,15 @@ public class CartController : MonoBehaviour
         _crankAngle = Mathf.Clamp(_crankAngle, -_crankMaxAngle, _crankMaxAngle);
         _crankTransform.localRotation = Quaternion.AngleAxis(_crankAngle, Vector3.forward);
 
-        if (_crankAngle > 0f) {
+        if (_crankAngle > 0f && _prevCrankAngle <= 0f) {
             _leftDude.Duck();
             _rightDude.Stand();
+            _audioSource.PlayOneShot(_crankClip);
         }
-        else if (_crankAngle < 0f) {
+        else if (_crankAngle < 0f && _prevCrankAngle >= 0f) {
             _leftDude.Stand();
             _rightDude.Duck();
+            _audioSource.PlayOneShot(_crankClip);
         }
 
         float crankDelta = _crankAngle - _prevCrankAngle;
@@ -120,12 +124,16 @@ public class CartController : MonoBehaviour
             _jumpCooldown -= Time.deltaTime;
         }
 
-        if (Input.GetButton("Jump")) {
+        if (Input.GetButtonDown("Jump")) {
+            _audioSource.PlayOneShot(_jumpChargeClip);
+        }
+        else if (Input.GetButton("Jump")) {
             _jumpCharge += Time.deltaTime;
         }
         else if (Input.GetButtonUp("Jump")) {
             float t = Mathf.Clamp01(_jumpCharge / _maxJumpChargeTime);
             _jumpForceRequested = Mathf.Lerp(_minJumpForce, _maxJumpForce, t);
+            _audioSource.Stop();
         }
 
         if (transform.position.y < _killY) {
@@ -171,6 +179,7 @@ public class CartController : MonoBehaviour
 
         if (_jumpForceRequested > 0f) {
             if (_canJump) {
+                _audioSource.PlayOneShot(_jumpClip);
                 _rigidBody.AddForce(transform.up * _jumpForceRequested, ForceMode2D.Impulse);
                 _canJump = false;
                 _jumpCooldown = 0.1f;
@@ -207,6 +216,7 @@ public class CartController : MonoBehaviour
 
     public void Reset()
     {
+
         RigidBodyOff(_rigidBody);
         RigidBodyOff(_leftWheel);
         RigidBodyOff(_rightWheel);
@@ -222,6 +232,16 @@ public class CartController : MonoBehaviour
         RigidBodyOn(_rigidBody);
         RigidBodyOn(_leftWheel);
         RigidBodyOn(_rightWheel);
+    }
+
+    public void PlayGoodDeath()
+    {
+        _audioSource.PlayOneShot(_goodDeathClip);
+    }
+
+    public void PlayBadDeath()
+    {
+        _audioSource.PlayOneShot(_badDeathClip);
     }
 
     void RigidBodyOff(Rigidbody2D body)
