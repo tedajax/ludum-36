@@ -7,10 +7,15 @@ public class CartController : MonoBehaviour
     public float _crankMinTurnRate = 90f;
     public float _crankMaxTurnRate = 540f;
     public float _crankDownForce = 2f;
-    public float _jumpForce = 10f;
+    public float _downForce = 200f;
+    public float _minJumpForce = 10f;
+    public float _maxJumpForce = 200f;
+    public float _maxJumpChargeTime = 4f;
     public float _airControlForce = 5f;
 
     public float _maxSpeed = 20f;
+
+    public float _killY = -5f;
 
     [SerializeField] private Rigidbody2D _rigidBody;
     [SerializeField] private Rigidbody2D _leftWheel;
@@ -21,14 +26,25 @@ public class CartController : MonoBehaviour
 
     [SerializeField] private Transform _crankTransform;
 
+    [SerializeField] private AudioSource _audioSource;
+    public AudioClip _crankClip;
+    public AudioClip _jumpClip;
+    public AudioClip _deathClip;
+
     private float _speedRatio = 0f;
 
     private float _crankAngle = 0f;
     private float _prevCrankAngle = 0f;
 
-    private bool _jumpRquested;
+    private float _jumpForceRequested;
+    private float _jumpCharge;
+    private bool _canJump = true;
+    private float _jumpCooldown = 0f;
     private float _crankForceRequested;
     private float _horizontalAxis;
+    private float _verticalAxis;
+
+    private Vector3 _spawnPosition;
 
     private float _CrankAngle
     {
@@ -54,13 +70,31 @@ public class CartController : MonoBehaviour
         }
     }
 
+    public float _JumpCharge
+    {
+        get
+        {
+            return Mathf.Clamp01(_jumpCharge / _maxJumpChargeTime);
+        }
+    }
+
+    public float _DistanceTravelled
+    {
+        get
+        {
+            return Mathf.Abs(transform.position.x - _spawnPosition.x);
+        }
+    }
+
     void Awake()
     {
+        _spawnPosition = transform.position;
     }
 
     void Update()
     {
         _horizontalAxis = Input.GetAxis("Horizontal");
+        _verticalAxis = Input.GetAxis("Vertical");
 
         _prevCrankAngle = _crankAngle;
 
@@ -82,8 +116,20 @@ public class CartController : MonoBehaviour
         float crankDelta = _crankAngle - _prevCrankAngle;
         _crankForceRequested += crankDelta / _crankMaxAngle;
 
-        if (Input.GetButtonDown("Jump")) {
-            _jumpRquested = true;
+        if (_jumpCooldown > 0f) {
+            _jumpCooldown -= Time.deltaTime;
+        }
+
+        if (Input.GetButton("Jump")) {
+            _jumpCharge += Time.deltaTime;
+        }
+        else if (Input.GetButtonUp("Jump")) {
+            float t = Mathf.Clamp01(_jumpCharge / _maxJumpChargeTime);
+            _jumpForceRequested = Mathf.Lerp(_minJumpForce, _maxJumpForce, t);
+        }
+
+        if (transform.position.y < _killY) {
+            GameController._Instance.Reset();
         }
     }
 
@@ -110,14 +156,27 @@ public class CartController : MonoBehaviour
 
         bool onGround = OnGround();
 
+        if (_jumpCooldown <= 0f && onGround) {
+            _canJump = true;
+        }
+
         if (!Mathf.Approximately(_horizontalAxis, 0f) && !onGround) {
             float force = -_horizontalAxis * _airControlForce;
             _rigidBody.AddTorque(force);
         }
 
-        if (_jumpRquested && onGround) {
-            _rigidBody.AddForce(transform.up * _jumpForce, ForceMode2D.Impulse);
-            _jumpRquested = false;
+        if (_verticalAxis < 0f && !onGround) {
+            _rigidBody.AddForce(Vector2.down * _downForce, ForceMode2D.Force);
+        }
+
+        if (_jumpForceRequested > 0f) {
+            if (_canJump) {
+                _rigidBody.AddForce(transform.up * _jumpForceRequested, ForceMode2D.Impulse);
+                _canJump = false;
+                _jumpCooldown = 0.1f;
+            }
+            _jumpForceRequested = 0f;
+            _jumpCharge = 0f;
         }
     }
 
@@ -126,6 +185,13 @@ public class CartController : MonoBehaviour
         bool leftOnGround = _leftWheel.IsTouchingLayers(1 << LayerMask.NameToLayer("Environment"));
         bool rightOnGround = _rightWheel.IsTouchingLayers(1 << LayerMask.NameToLayer("Environment"));
         return leftOnGround && rightOnGround;
+    }
+
+    void OnTriggerEnter2D(Collider2D collider)
+    {
+        if (collider.tag == "Avalanche") {
+            GameController._Instance.Reset();
+        }
     }
 
     void OnCollisionEnter2D(Collision2D collision)
@@ -137,5 +203,38 @@ public class CartController : MonoBehaviour
                 barrierController.BlastApart(angle, angle + 45, _Speed);
             }
         }
+    }
+
+    public void Reset()
+    {
+        RigidBodyOff(_rigidBody);
+        RigidBodyOff(_leftWheel);
+        RigidBodyOff(_rightWheel);
+
+        transform.position = _spawnPosition;
+        transform.rotation = Quaternion.identity;
+        _rigidBody.position = transform.position;
+        _rigidBody.rotation = 0f;
+
+        gameObject.SetActive(false);
+        gameObject.SetActive(true);
+
+        RigidBodyOn(_rigidBody);
+        RigidBodyOn(_leftWheel);
+        RigidBodyOn(_rightWheel);
+    }
+
+    void RigidBodyOff(Rigidbody2D body)
+    {
+        body.velocity = Vector2.zero;
+        body.angularVelocity = 0f;
+        body.isKinematic = true;
+        body.gravityScale = 0f;
+    }
+
+    void RigidBodyOn(Rigidbody2D body)
+    {
+        body.isKinematic = false;
+        body.gravityScale = 1f;
     }
 }

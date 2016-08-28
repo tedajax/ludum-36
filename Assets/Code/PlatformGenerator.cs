@@ -40,6 +40,17 @@ public class PlatformGenerator : MonoBehaviour
         _currentSpawnPoint = spawnGameObject.transform;
         _currentSpawnPoint.SetParent(transform, false);
 
+        Reset();
+    }
+    public void Reset()
+    {
+        foreach (var go in _gameObjects) {
+            Destroy(go);
+        }
+        _gameObjects.Clear();
+
+        _currentSpawnPoint.localPosition = Vector3.zero;
+
         for (int i = 0; i < _platformLength; ++i) {
             AddBlock(false, false, false, false);
         }
@@ -133,4 +144,5 @@ public class PlatformGenerator : MonoBehaviour
     {
         _currentSpawnPoint.position += transform.right * _spacing * blocks;
     }
+
 }
