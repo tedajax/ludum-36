@@ -27,6 +27,7 @@ public class CartController : MonoBehaviour
     [SerializeField] private Transform _crankTransform;
 
     [SerializeField] private AudioSource _audioSource;
+    public AudioSource _musicSource;
     public AudioClip _crankClip;
     public AudioClip _jumpClip;
     public AudioClip _jumpChargeClip;
@@ -88,6 +89,8 @@ public class CartController : MonoBehaviour
         }
     }
 
+    private bool _musicStarted = false;
+
     void Awake()
     {
         _spawnPosition = transform.position;
@@ -138,6 +141,11 @@ public class CartController : MonoBehaviour
 
         if (transform.position.y < _killY) {
             GameController._Instance.Reset();
+        }
+
+        if (transform.position.x > 30f && _musicStarted == false) {
+            _musicStarted = true;
+            _musicSource.Play();
         }
     }
 
@@ -233,6 +241,8 @@ public class CartController : MonoBehaviour
         RigidBodyOn(_rigidBody);
         RigidBodyOn(_leftWheel);
         RigidBodyOn(_rightWheel);
+
+        _musicStarted = false;
     }
 
     public void PlayGoodDeath()
