@@ -8,6 +8,7 @@ public class CartController : MonoBehaviour
     public float _crankMaxTurnRate = 540f;
     public float _crankDownForce = 2f;
     public float _jumpForce = 10f;
+    public float _airControlForce = 5f;
 
     public float _maxSpeed = 20f;
 
@@ -27,6 +28,7 @@ public class CartController : MonoBehaviour
 
     private bool _jumpRquested;
     private float _crankForceRequested;
+    private float _horizontalAxis;
 
     private float _CrankAngle
     {
@@ -58,13 +60,13 @@ public class CartController : MonoBehaviour
 
     void Update()
     {
-        float horizontal = Input.GetAxis("Horizontal");
+        _horizontalAxis = Input.GetAxis("Horizontal");
 
         _prevCrankAngle = _crankAngle;
 
         float crankTurnRate = Mathf.Lerp(_crankMinTurnRate, _crankMaxTurnRate, _speedRatio);
 
-        _crankAngle += crankTurnRate * -horizontal * Time.deltaTime;
+        _crankAngle += crankTurnRate * -_horizontalAxis * Time.deltaTime;
         _crankAngle = Mathf.Clamp(_crankAngle, -_crankMaxAngle, _crankMaxAngle);
         _crankTransform.localRotation = Quaternion.AngleAxis(_crankAngle, Vector3.forward);
 
@@ -105,7 +107,15 @@ public class CartController : MonoBehaviour
             _crankForceRequested = 0f;
         }
 
-        if (_jumpRquested && OnGround()) {
+
+        bool onGround = OnGround();
+
+        if (!Mathf.Approximately(_horizontalAxis, 0f) && !onGround) {
+            float force = -_horizontalAxis * _airControlForce;
+            _rigidBody.AddTorque(force);
+        }
+
+        if (_jumpRquested && onGround) {
             _rigidBody.AddForce(transform.up * _jumpForce, ForceMode2D.Impulse);
             _jumpRquested = false;
         }
