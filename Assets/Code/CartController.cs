@@ -4,21 +4,53 @@ public class CartController : MonoBehaviour
 {
     public float _crankForce = 5f;
     public float _crankMaxAngle = 30f;
-    public float _crankTiltTime = 0.3f;
+    public float _crankMinTurnRate = 90f;
+    public float _crankMaxTurnRate = 540f;
+    public float _crankDownForce = 2f;
     public float _jumpForce = 10f;
 
-    enum CrankState
-    {
-        Left,
-        Right
-    }
+    public float _maxSpeed = 20f;
 
     [SerializeField] private Rigidbody2D _rigidBody;
+    [SerializeField] private Rigidbody2D _leftWheel;
+    [SerializeField] private Rigidbody2D _rightWheel;
 
-    private CrankState _crankState = CrankState.Left;
-    private CrankState _prevCrankState = CrankState.Left;
+    [SerializeField] private DudeController _leftDude;
+    [SerializeField] private DudeController _rightDude;
+
     [SerializeField] private Transform _crankTransform;
-    private float _crankVelocity;
+
+    private float _speedRatio = 0f;
+
+    private float _crankAngle = 0f;
+    private float _prevCrankAngle = 0f;
+
+    private bool _jumpRquested;
+    private float _crankForceRequested;
+
+    private float _CrankAngle
+    {
+        get
+        {
+            return _crankTransform.localRotation.eulerAngles.z;
+        }
+    }
+
+    public float _Speed
+    {
+        get
+        {
+            return Mathf.Abs(_leftWheel.angularVelocity) * Mathf.Deg2Rad * _WheelRadius;
+        }
+    }
+
+    private float _WheelRadius
+    {
+        get
+        {
+            return _leftWheel.GetComponent<CircleCollider2D>().radius;
+        }
+    }
 
     void Awake()
     {
@@ -27,36 +59,73 @@ public class CartController : MonoBehaviour
     void Update()
     {
         float horizontal = Input.GetAxis("Horizontal");
-        if (horizontal < 0f) {
-            _crankState = CrankState.Left;
+
+        _prevCrankAngle = _crankAngle;
+
+        float crankTurnRate = Mathf.Lerp(_crankMinTurnRate, _crankMaxTurnRate, _speedRatio);
+
+        _crankAngle += crankTurnRate * -horizontal * Time.deltaTime;
+        _crankAngle = Mathf.Clamp(_crankAngle, -_crankMaxAngle, _crankMaxAngle);
+        _crankTransform.localRotation = Quaternion.AngleAxis(_crankAngle, Vector3.forward);
+
+        if (_crankAngle > 0f) {
+            _leftDude.Duck();
+            _rightDude.Stand();
         }
-        else if (horizontal > 0f) {
-            _crankState = CrankState.Right;
+        else if (_crankAngle < 0f) {
+            _leftDude.Stand();
+            _rightDude.Duck();
         }
 
-        bool requestJump = false;
-        if (Input.GetButtonDown("Fire1")) {
-            requestJump = true;
+        float crankDelta = _crankAngle - _prevCrankAngle;
+        _crankForceRequested += crankDelta / _crankMaxAngle;
+
+        if (Input.GetButtonDown("Jump")) {
+            _jumpRquested = true;
+        }
+    }
+
+    void FixedUpdate()
+    {
+        _speedRatio = _Speed / _maxSpeed;
+        float forceRatio = 1f - _speedRatio;
+
+        if (!Mathf.Approximately(_crankForceRequested, 0f)) {
+            float force = Mathf.Abs(_crankForceRequested) * forceRatio;
+            float torque = force * -_crankForce;
+            _leftWheel.AddTorque(torque, ForceMode2D.Force);
+            _rightWheel.AddTorque(torque, ForceMode2D.Force);
+
+            Vector3 downPosition = _rightWheel.position;
+            if (_crankForceRequested > 0f) {
+                downPosition = _leftWheel.position;
+            }
+            _rigidBody.AddForceAtPosition(-transform.up * _crankDownForce * force, downPosition, ForceMode2D.Force);
+
+            _crankForceRequested = 0f;
         }
 
-        if (_prevCrankState != _crankState) {
-            _prevCrankState = _crankState;
-            _rigidBody.AddForce(Vector2.right * _crankForce, ForceMode2D.Impulse);
+        if (_jumpRquested && OnGround()) {
+            _rigidBody.AddForce(transform.up * _jumpForce, ForceMode2D.Impulse);
+            _jumpRquested = false;
         }
+    }
 
-        float _targetCrankAngle = 0f;
-        if (_crankState == CrankState.Left) {
-            _targetCrankAngle = _crankMaxAngle;
-        }
-        else {
-            _targetCrankAngle = -_crankMaxAngle;
-        }
-        float crankAngle = _crankTransform.localRotation.eulerAngles.z;
-        crankAngle = Mathf.SmoothDampAngle(crankAngle, _targetCrankAngle, ref _crankVelocity, _crankTiltTime * Time.deltaTime);
-        _crankTransform.localRotation = Quaternion.AngleAxis(crankAngle, Vector3.forward);
+    bool OnGround()
+    {
+        bool leftOnGround = _leftWheel.IsTouchingLayers(1 << LayerMask.NameToLayer("Environment"));
+        bool rightOnGround = _rightWheel.IsTouchingLayers(1 << LayerMask.NameToLayer("Environment"));
+        return leftOnGround && rightOnGround;
+    }
 
-        if (requestJump) {
-            _rigidBody.AddForce(Vector2.up * _jumpForce, ForceMode2D.Impulse);
+    void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (collision.transform.tag == "Barrier") {
+            var barrierController = collision.transform.GetComponentInParent<BarrierController>();
+            if (barrierController != null) {
+                float angle = transform.rotation.eulerAngles.z;
+                barrierController.BlastApart(angle, angle + 45, _Speed);
+            }
         }
     }
 }
