@@ -9,6 +9,8 @@ public class PlatformGenerator : MonoBehaviour
     public GameObject _railPrefab;
     public GameObject _centerPrefab;
     public GameObject _barrierPrefab;
+    public GameObject _waterTopPrefab;
+    public GameObject _waterMidPrefab;
 
     public int _platformLength = 30;
     public int _groundDepth = 4;
@@ -104,6 +106,9 @@ public class PlatformGenerator : MonoBehaviour
                 if (Random.Range(0, 2) == 1) {
                     direction = -1f;
                 }
+                if (direction < 0f && _currentSpawnPoint.position.y <= -1.74f) {
+                    direction = 1f;
+                }
                 _currentSpawnPoint.position += transform.up * _verticalSpacing * direction;
                 _blocksSinceHeightChange = 0;
             }
@@ -142,7 +147,19 @@ public class PlatformGenerator : MonoBehaviour
 
     void AddGap(int blocks)
     {
-        _currentSpawnPoint.position += transform.right * _spacing * blocks;
+        for (int i = 0; i < blocks; ++i) {
+            var position = _currentSpawnPoint.position;
+            var waterObj = Instantiate(_waterTopPrefab, position, transform.rotation) as GameObject;
+            _gameObjects.Add(waterObj);
+
+            var underPosition = position + -transform.up * _spacing;
+            for (int j = 0; j < _groundDepth; ++j) {
+                var underGroundObj = Instantiate(_waterMidPrefab, underPosition, transform.rotation) as GameObject;
+                _gameObjects.Add(underGroundObj);
+                underPosition += -transform.up * _spacing;
+            }
+            _currentSpawnPoint.position += transform.right * _spacing;
+        }
     }
 
 }
