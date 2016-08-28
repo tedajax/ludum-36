@@ -28,6 +28,10 @@ public class GameController : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Backspace)) {
             Reset();
         }
+
+        if (Input.GetKeyDown(KeyCode.Escape)) {
+            Application.Quit();
+        }
     }
 
     public void Reset()
@@ -48,5 +52,7 @@ public class GameController : MonoBehaviour
         else {
             _cart.PlayBadDeath();
         }
+
+        Camera.main.GetComponent<CameraController>()._ShakeModifier = 0f;
     }
 }

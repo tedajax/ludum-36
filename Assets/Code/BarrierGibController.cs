@@ -2,7 +2,6 @@
 
 public class BarrierGibController : MonoBehaviour
 {
-    float _delayAnything = 0f;
     float _timer = 0f;
 
     SpriteRenderer _sprite;

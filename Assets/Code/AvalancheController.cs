@@ -7,6 +7,7 @@ public class AvalancheController : MonoBehaviour
     public float _distanceFactor = 35f;
     public float _startDistance = 40f;
     public Transform _tracked;
+    public CameraController _camera;
 
     private Vector3 _spawnPosition;
     private bool _triggered = false;
@@ -35,6 +36,11 @@ public class AvalancheController : MonoBehaviour
         float t = Mathf.Clamp01(_Distance / _distanceFactor);
         float speed = Mathf.Lerp(_minSpeed, _maxSpeed, t);
         transform.position += Vector3.right * speed * Time.deltaTime;
+
+        if (_camera != null) {
+            float shake = 1f - Mathf.Clamp01(_Distance / 24f);
+            _camera._ShakeModifier = shake * 0.06f;
+        }
     }
 
     public string GetDistanceString()

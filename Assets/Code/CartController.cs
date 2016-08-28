@@ -208,6 +208,7 @@ public class CartController : MonoBehaviour
         if (collision.transform.tag == "Barrier") {
             var barrierController = collision.transform.GetComponentInParent<BarrierController>();
             if (barrierController != null) {
+                barrierController.GetComponent<AudioSource>().Play();
                 float angle = transform.rotation.eulerAngles.z;
                 barrierController.BlastApart(angle, angle + 45, _Speed);
             }
